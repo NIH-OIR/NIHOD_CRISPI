@@ -33,13 +33,29 @@ def get_pqs_protocol_detail_response(session, conf_file, protocol_number):
     response = session.get(protocol_detail_url, verify=False)
     return response;
 
+def get_pqs_protocol_list(conf_file, conn):
+    protocol_list_session = requests.Session()
+    protocol_list_response_arr = get_pqs_protocol_list_response(protocol_list_session, conf_file)  
+
+    protocol_list = set()
+    for protocol_list_response in protocol_list_response_arr:
+        study_json = protocol_list_response.json()['protocols'] 
+        for study in study_json:
+            protocol_list.add(study['protocolNumber'])
+    
+    # for p in protocol_list:
+    #     if (p == '17-C-N141'):
+    #         print ("protocol number: " + p)
+    
+    print ("protocol list size: " + str(len(protocol_list)))
+    return protocol_list;
+
 ct_data_fields_key = ['nctId', 'orgStudyIdInfo', 'title', 'clinicalTrialLink', 
                     'firstSubmitDate', 'primaryCompletionDate', 'lastUpdateSubmitDate']
 
 def generate_pqs_tables(conf_file, conn):
     print ("PQS Pipeline Start Time: " + str(datetime.datetime.now()))
-    protocol_list_session = requests.Session()
-    protocol_list_response_arr = get_pqs_protocol_list_response(protocol_list_session, conf_file)
+    protocol_list = get_pqs_protocol_list(conf_file, conn)
 
     protocol_detail_session = requests.Session()
     #protocol_detail_response = get_pqs_protocol_detail_response(protocol_detail_session, conf_file)
@@ -54,89 +70,86 @@ def generate_pqs_tables(conf_file, conn):
     pi_data = []
     ct_dataList = list()
     
-    for protocol_list_response in protocol_list_response_arr:
-        study_json = protocol_list_response.json()['protocols']
+    count = 0
+    for protocol in protocol_list:   
+        count += 1
 
-        print ("protocol list size: " + str(len(study_json)))
-        count = 0
-        for p in study_json:
-            count += 1
-            protocol_number = p['protocolNumber']
-            simplified_protocol_number = ''.join(re.findall('[0-9]+', p['protocolNumber']))
+        protocol_number = protocol
+        simplified_protocol_number = protocol_number.replace('-', '')
 
-            # if count > 100:
-            #     break
-            #calling api for specific protocol details
-            protocol_detail_response = get_pqs_protocol_detail_response(protocol_detail_session, conf_file, protocol_number)
-            if protocol_detail_response.json()['responseCode'] != 200:
-                continue
-            
-            detail_json = protocol_detail_response.json()['returnedProtocol']
-            
-            #flattened_detail_table = pd.json_normalize(json_flatten(detail_json))
-            # flattened_detail_json = json_flatten(detail_json)
-            flattened_detail_json = dict.fromkeys(protocol_data_fields, None)
-            flattened_detail_json['protocol_number'] = protocol_number
-            flattened_detail_json['simpleProtocolNumber'] = simplified_protocol_number
-            flattened_detail_json['protocol_title'] = detail_json.get('protocol_title', '')
-            flattened_detail_json['accrual_inst'] = detail_json.get('accrual_inst', '')
-            flattened_detail_json['accrual_status'] = detail_json.get('accrual_status', '')
-            flattened_detail_json['coord_site'] = detail_json.get('coord_site_name', '')
-            flattened_detail_json['protrak_accrual_status'] = detail_json.get('protrak_accrual_status', '')
-            flattened_detail_json['research_type'] = detail_json.get('research_type', '')
-            flattened_detail_json['research_phase'] = detail_json.get('research_phase', '')   
-            flattened_detail_json['study_type'] = detail_json.get('study_type', '')
-            flattened_detail_json['start_date_of_study'] = detail_json.get('start_date_of_study', '')
-            flattened_detail_json['primary_completion_date'] = detail_json.get('primary_completion_date', '')
-            flattened_detail_json['date_first_part_enrolled'] = detail_json.get('date_first_part_enrolled', '')
-            flattened_detail_json['irb_name'] = detail_json.get('irb_name', '')
-            flattened_detail_json['z_number'] = detail_json.get('z_number', '')
-            flattened_detail_json['nct_number'] = detail_json.get('nct_number', '')
+        # if count > 100:
+        #     break
+        #calling api for specific protocol details
+        protocol_detail_response = get_pqs_protocol_detail_response(protocol_detail_session, conf_file, protocol_number)
+        if protocol_detail_response.json()['responseCode'] != 200:
+            continue
+        
+        detail_json = protocol_detail_response.json()['returnedProtocol']
+        
+        #flattened_detail_table = pd.json_normalize(json_flatten(detail_json))
+        # flattened_detail_json = json_flatten(detail_json)
+        flattened_detail_json = dict.fromkeys(protocol_data_fields, None)
+        flattened_detail_json['protocol_number'] = protocol_number
+        flattened_detail_json['simpleProtocolNumber'] = simplified_protocol_number
+        flattened_detail_json['protocol_title'] = detail_json.get('protocol_title', '')
+        flattened_detail_json['accrual_inst'] = detail_json.get('accrual_inst', '')
+        flattened_detail_json['accrual_status'] = detail_json.get('accrual_status', '')
+        flattened_detail_json['coord_site'] = detail_json.get('coord_site_name', '')
+        flattened_detail_json['protrak_accrual_status'] = detail_json.get('protrak_accrual_status', '')
+        flattened_detail_json['research_type'] = detail_json.get('research_type', '')
+        flattened_detail_json['research_phase'] = detail_json.get('research_phase', '')   
+        flattened_detail_json['study_type'] = detail_json.get('study_type', '')
+        flattened_detail_json['start_date_of_study'] = detail_json.get('start_date_of_study', '')
+        flattened_detail_json['primary_completion_date'] = detail_json.get('primary_completion_date', '')
+        flattened_detail_json['date_first_part_enrolled'] = detail_json.get('date_first_part_enrolled', '')
+        flattened_detail_json['irb_name'] = detail_json.get('irb_name', '')
+        flattened_detail_json['z_number'] = detail_json.get('z_number', '')
+        flattened_detail_json['nct_number'] = detail_json.get('nct_number', '')
 
-            #getting pi information from API call
-            investigators = detail_json['investigators']
-            for i in investigators:
-                if i['r'] == 'PI':
-                    pi_detail_json = dict.fromkeys(pi_data_fields, None)
-                    pi_detail_json['protocol_number'] = protocol_number
-                    pi_detail_json['simplifiedProtocolNumber'] = simplified_protocol_number
-                    pi_detail_json['firstName'] = i['n']['fn']
-                    pi_detail_json['lastName'] = i['n']['ln']
-                    pi_detail_json['middleName'] = i['n']['mn']
-                    pi_detail_json['piName'] = '{0} {1} {2}'.format(i['n']['fn'],i['n']['mn'],i['n']['ln'])
+        #getting pi information from API call
+        investigators = detail_json['investigators']
+        for i in investigators:
+            if i['r'] == 'PI':
+                pi_detail_json = dict.fromkeys(pi_data_fields, None)
+                pi_detail_json['protocol_number'] = protocol_number
+                pi_detail_json['simplifiedProtocolNumber'] = simplified_protocol_number
+                pi_detail_json['firstName'] = i['n']['fn']
+                pi_detail_json['lastName'] = i['n']['ln']
+                pi_detail_json['middleName'] = i['n']['mn']
+                pi_detail_json['piName'] = '{0} {1} {2}'.format(i['n']['fn'],i['n']['mn'],i['n']['ln'])
 
-                    pi_data.append(pi_detail_json) if pi_detail_json not in pi_data else None
+                pi_data.append(pi_detail_json) if pi_detail_json not in pi_data else None
 
-            #summarizing enrollment data
-            enrollmentForms = detail_json.get('enrollment_forms','')
-            if enrollmentForms:
-                enrollmentForms = enrollmentForms[0]
-                currentEnrollment = enrollmentForms['total_american_indian'] + enrollmentForms['total_asian'] + enrollmentForms['total_black'] + enrollmentForms['total_hawaiian'] + enrollmentForms['total_more_than_one_race'] + enrollmentForms['total_unknowns'] + enrollmentForms['total_white']
-            else:
-                currentEnrollment = ''
+        #summarizing enrollment data
+        enrollmentForms = detail_json.get('enrollment_forms','')
+        if enrollmentForms:
+            enrollmentForms = enrollmentForms[0]
+            currentEnrollment = enrollmentForms['total_american_indian'] + enrollmentForms['total_asian'] + enrollmentForms['total_black'] + enrollmentForms['total_hawaiian'] + enrollmentForms['total_more_than_one_race'] + enrollmentForms['total_unknowns'] + enrollmentForms['total_white']
+        else:
+            currentEnrollment = ''
 
-            targetEnrollments = detail_json.get('target_enrollments','')
-            if targetEnrollments:
-                targetEnrollments = targetEnrollments[0]
-                targetEnrollment = targetEnrollments['total_american_indian'] + targetEnrollments['total_asian'] + targetEnrollments['total_black'] + targetEnrollments['total_hawaiian'] + targetEnrollments['total_more_than_one_race'] + targetEnrollments['total_white']
-            else:
-                targetEnrollment = ''
+        targetEnrollments = detail_json.get('target_enrollments','')
+        if targetEnrollments:
+            targetEnrollments = targetEnrollments[0]
+            targetEnrollment = targetEnrollments['total_american_indian'] + targetEnrollments['total_asian'] + targetEnrollments['total_black'] + targetEnrollments['total_hawaiian'] + targetEnrollments['total_more_than_one_race'] + targetEnrollments['total_white']
+        else:
+            targetEnrollment = ''
 
-            flattened_detail_json['currentEnrollment'] = currentEnrollment
-            flattened_detail_json['plannedEnrollment'] = targetEnrollment
+        flattened_detail_json['currentEnrollment'] = currentEnrollment
+        flattened_detail_json['plannedEnrollment'] = targetEnrollment
 
-            #flattening coord_site data
-            flattened_detail_json['coord_site'] = detail_json.get('coord_site_name','')
-            flattened_detail_json['primaryCompletionDate'] = detail_json.get('primary_completion_date')
+        #flattening coord_site data
+        flattened_detail_json['coord_site'] = detail_json.get('coord_site_name','')
+        flattened_detail_json['primaryCompletionDate'] = detail_json.get('primary_completion_date')
 
-            global ct_data_fields_key
-            nct_number = detail_json.get('nct_number','')
-            if (nct_number and nct_number != "N/A"):
-                # print("nct_number: ", nct_number)
-                ct_dataList = generate_ct_tables(conf_file, nct_number, ct_dataList, ct_data_fields_key)
+        global ct_data_fields_key
+        nct_number = detail_json.get('nct_number','')
+        if (nct_number and nct_number != "N/A"):
+            # print("nct_number: ", nct_number)
+            ct_dataList = generate_ct_tables(conf_file, nct_number, ct_dataList, ct_data_fields_key)
 
-            #detail_table = pd.concat([detail_table, flattened_detail_table])
-            detail_data.append(flattened_detail_json) if flattened_detail_json not in detail_data else None
+        #detail_table = pd.concat([detail_table, flattened_detail_table])
+        detail_data.append(flattened_detail_json) if flattened_detail_json not in detail_data else None
 
     pi_table = pd.json_normalize(pi_data)
     detail_table = pd.json_normalize(detail_data)
@@ -163,6 +176,9 @@ if __name__ == '__main__':
     conf_file = load_config_file()
       
     conn = get_db_connection(conf_file)
+
+    # protocol_list = get_pqs_protocol_list(conf_file, conn)  
+
 
     generate_pqs_tables(conf_file, conn)
 
