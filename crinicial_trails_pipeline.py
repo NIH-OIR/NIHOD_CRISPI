@@ -5,6 +5,7 @@ from sqlalchemy import *
 from db_conn import *
 from db_util import *
 import datetime
+import logging
 
 requests.packages.urllib3.disable_warnings()
 
@@ -50,9 +51,9 @@ def generate_ct_dataList(conf_file, nct_number, ct_dataList, ct_data_fields_key)
     ct_data_fields['primaryCompletionDate'] = primaryCompletionDate
     lastUpdateSubmitDate = statusData.get('lastUpdateSubmitDate','')
     ct_data_fields['lastUpdateSubmitDate'] = lastUpdateSubmitDate
+    ct_data_fields['resultsFirstSubmitDate'] = statusData.get('resultsFirstSubmitDate','')
 
     ct_dataList.append(ct_data_fields)
-
 
     return ct_dataList;
     # ct_protocol_table = pd.json_normalize(dataList)
@@ -69,9 +70,15 @@ def get_NctId_from_DB(engine):
     return nctIds
 
 def generate_ct_tables(conf_file, engine):
+    logger = logging.getLogger(__name__)
+    
     print ("CT Pipeline Start Time: " + str(datetime.datetime.now()))
+    logger.info("CT Pipeline Start Time: " + str(datetime.datetime.now()))
+    
     nctIds = get_NctId_from_DB(engine)
     print("number of nctIds: ", len(nctIds))
+    logger.info("number of nctIds: ", len(nctIds))
+    
     ct_data_fields_key = ['nctId', 'orgStudyIdInfo', 'title', 'clinicalTrialLink', 
                     'firstSubmitDate', 'primaryCompletionDate', 'lastUpdateSubmitDate']
     ct_dataList = list()
@@ -93,14 +100,17 @@ def generate_ct_tables(conf_file, engine):
             conn.commit()
         except Exception as e:
             print(f"Error dropping table: {e}")
+            logger.error(f"Error dropping table: {e}")
             conn.rollback()
 
-    ct_protocol_table.to_sql(ct_table_name, con=engine.connect(), if_exists='replace', index=True, index_label='id', )
+    ct_protocol_table.to_sql(ct_table_name, con=engine.connect(), if_exists='replace', index=True, index_label='id')
     print ("CT Pipeline End Time: " + str(datetime.datetime.now()))
+    logger.info("CT Pipeline End Time: " + str(datetime.datetime.now()))
 
 
 
-if __name__ == '__main__': 
+if __name__ == '__main__':
+    logging.basicConfig(filename='pipelinelog.log')
     conf_file = load_config_file()
       
     engine = get_db_engine(conf_file)

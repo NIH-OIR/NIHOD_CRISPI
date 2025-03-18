@@ -25,13 +25,13 @@ def get_pqs_protocol_list_response(session, conf_file):
     for i in range(5):
         responseArr.append( session.get(pqs_protocol_by_fical_year_url + str(current_year - i), verify=False))   
     
-    return responseArr;
+    return responseArr
 
 def get_pqs_protocol_detail_response(session, conf_file, protocol_number):
     protocol_detail_url = conf_file['PQS_API']['pqs_protocol_detail_url'] + protocol_number
     # print(protocol_detail_url)
     response = session.get(protocol_detail_url, verify=False)
-    return response;
+    return response
 
 def get_pqs_protocol_list(conf_file, conn):
     protocol_list_session = requests.Session()
@@ -48,7 +48,7 @@ def get_pqs_protocol_list(conf_file, conn):
     #         print ("protocol number: " + p)
     
     print ("protocol list size: " + str(len(protocol_list)))
-    return protocol_list;
+    return protocol_list
 
 ct_data_fields_key = ['nctId', 'orgStudyIdInfo', 'title', 'clinicalTrialLink', 
                     'firstSubmitDate', 'primaryCompletionDate', 'lastUpdateSubmitDate']
@@ -150,6 +150,9 @@ def generate_pqs_tables(conf_file, conn):
 
         #detail_table = pd.concat([detail_table, flattened_detail_table])
         detail_data.append(flattened_detail_json) if flattened_detail_json not in detail_data else None
+        
+        time.sleep(.5)
+
 
     pi_table = pd.json_normalize(pi_data)
     detail_table = pd.json_normalize(detail_data)
