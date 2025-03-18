@@ -8,6 +8,7 @@ from pipelineFunctions import *
 from config import *
 from db_conn import *
 from crinicial_trails_pipeline import *
+import time
 requests.packages.urllib3.disable_warnings()
 
 
