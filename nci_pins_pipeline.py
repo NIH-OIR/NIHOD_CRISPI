@@ -36,10 +36,10 @@ def generate_nci_pins_tables(conf_file, conn):
         #total 2210
         print ("PINS protocol list size: " + str(len(protocol_list_response.json())))
 
-    pins_data_fields_key = ['formattedProtocolNumber', 'shortTitle', 'active', 'piFullName', 'piEmail', 'piNedId', 'accrualCeiling', 
+    pins_data_fields_key = ['number','formattedProtocolNumber', 'shortTitle', 'active', 'piFullName', 'piEmail', 'piNedId', 'accrualCeiling', 
                             'sponsorNumber', 'sponsor', 'multiInstitutional', 'nihCoordinatingSite', 'externalIrbInvolved', 'externalIrbName',
                             'protocolPhase', 'protocolStatus', 'protocolCategory', 'interventionalModel', 'masking', 'riskLevel', 
-                            'multiInstitutional', 'twoStepEnrollment']
+                            'twoStepEnrollment']
     protocol_details_list = list()
     pins_drug_list = list()
     pins_device_list = list()
@@ -58,10 +58,12 @@ def generate_nci_pins_tables(conf_file, conn):
         if drug_data:
             for i in drug_data:
                 i['protocolNumber'] = protocol_data['formattedProtocolNumber']
+                i.pop('id')
                 pins_drug_list.append(i)
         if device_data:    
             for i in device_data:
                 i['protocolNumber'] = protocol_data['formattedProtocolNumber']
+                i.pop('id')
                 pins_device_list.append(i)
 
     pins_protocol_table = pd.json_normalize(protocol_details_list)[pins_data_fields_key]
